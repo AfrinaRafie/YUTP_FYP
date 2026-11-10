@@ -1,0 +1,15 @@
+# Python virtual environments (huge, never upload)
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Mac / Office temp files
+.DS_Store
+~$*
+
+# Secrets (API keys) - never upload
+.env
+.streamlit/secrets.toml

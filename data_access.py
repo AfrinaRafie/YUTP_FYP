@@ -4,15 +4,21 @@ from database import get_connection
 
 def get_full_dataset():
     conn = get_connection()
-
     query = """
     SELECT 
         d.donor_id,
+        d.login_id,
         d.donor_name,
         d.donor_category,
         d.country,
-        d.donor_relationship_age_months,
-        d.is_hnwi,
+        CASE
+            WHEN LOWER(d.donor_name) LIKE 'petronas%' THEN 'PETRONAS'
+            WHEN LOWER(d.donor_name) LIKE 'maybank%' THEN 'Maybank'
+            WHEN LOWER(d.donor_name) LIKE 'cimb%' THEN 'CIMB'
+            WHEN LOWER(d.donor_name) LIKE 'shell%' THEN 'Shell'
+            WHEN LOWER(d.donor_name) LIKE 'tnb%' THEN 'TNB'
+            ELSE d.donor_name
+        END AS corporate_parent,
         d.corporate_core_business,
 
         dn.transaction_id,
@@ -25,17 +31,13 @@ def get_full_dataset():
         dn.quarter,
 
         e.event_attendance_count,
-        e.last_event_date,
-
-        ap.predicted_likelihood,
-        ap.predicted_interest_area
-
+        e.last_event_date
     FROM donors d
     LEFT JOIN donations dn ON d.donor_id = dn.donor_id
     LEFT JOIN donor_engagement e ON d.donor_id = e.donor_id
-    LEFT JOIN ai_predictions ap ON d.donor_id = ap.donor_id
     """
-
-    df = pd.read_sql_query(query, conn)
-    conn.close()
-    return df
+    try:
+        df = pd.read_sql_query(query, conn)
+        return df
+    finally:
+        conn.close()

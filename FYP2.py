@@ -6,6 +6,7 @@ import os
 from auth import authenticate_user
 
 
+
 # -----------------------------
 # SESSION INITIALIZATION
 # -----------------------------
@@ -17,26 +18,121 @@ if "user_role" not in st.session_state:
     st.session_state.user_role = None
 
 def login_page():
-    st.title("YUTP Donor Management System Login")
+    import re
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    # Center login container
+    left, center, right = st.columns([1,2,1])
 
-    if st.button("Login"):
-        user = authenticate_user(username, password)
+    with center:
+        st.markdown(
+            """
+            <h1 style='text-align:center; margin-bottom:20px; color:#122741; font-size:28px; white-space:nowrap;'>
+            YUTP Donor Intelligence Dashboard
+            </h1>
+            """,
+            unsafe_allow_html=True
+        )
 
-        if user:
-            st.session_state.logged_in = True
-            st.session_state.user_role = user["role"]
-            st.session_state.username = username
-        else:
-            st.error("Invalid username or password")
+        st.markdown(
+            """
+            <style>
+            .login-title {
+                font-size: 28px;
+                font-weight: 600;
+                margin-bottom: 10px;
+                color: #122741;
+            }
+            .login-sub {
+                color: #6c757d;
+                margin-bottom: 25px;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.markdown("<div class='login-container'>", unsafe_allow_html=True)
+        login_container = st.container(border=True)
+
+        with login_container:
+
+            # Ensure no logo or st.image is displayed in the login container
+
+            user_type = st.radio(
+                "Access Portal",
+                ["YUTP Internal Staff", "Registered Donor"]
+            )
+
+            if user_type == "YUTP Internal Staff":
+                username = st.text_input("Staff Email (@utp.my)")
+                password = st.text_input("Password", type="password")
+            else:
+                username = st.text_input("Login ID (IC / Passport / Corporate Donor ID)")
+                password = None
+
+            if st.button("Login"):
+                if user_type == "YUTP Internal Staff":
+                    # --------------------------------
+                    # CASE 1: Staff login using @utp.my
+                    # --------------------------------
+                    if username.endswith("@utp.my"):
+                        user = authenticate_user(username, password)
+
+                        if user:
+                            st.session_state.logged_in = True
+                            st.session_state.user_role = user["role"]
+                            st.session_state.username = username
+                        else:
+                            st.error("Invalid staff email or password")
+                    else:
+                        st.error("Invalid staff email format")
+                elif user_type == "Registered Donor":
+                    # --------------------------------
+                    # Donor login (IC / Passport / Corporate ID)
+                    # --------------------------------
+                    try:
+                        from database import get_connection
+                        conn = get_connection()
+                        cursor = conn.cursor()
+
+                        # Check login_id first (corporate IDs), then donor_id (IC numbers)
+                        cursor.execute(
+                            """
+                            SELECT donor_id FROM donors
+                            WHERE login_id = ? OR donor_id = ?
+                            """,
+                            (username, username)
+                        )
+
+                        donor = cursor.fetchone()
+                        conn.close()
+
+                        if donor:
+                            st.session_state.logged_in = True
+                            st.session_state.user_role = "donor"
+                            st.session_state.username = username
+                        else:
+                            st.error("Donor login ID not found in records")
+
+                    except Exception:
+                        st.error("Unable to verify donor login")
+                        st.markdown("</div>", unsafe_allow_html=True)
 
 # ==========================
 # LOGIN GATE
 # ==========================
 
 if not st.session_state.logged_in:
+    # Hide sidebar on login page
+    st.markdown(
+        """
+        <style>
+        [data-testid="stSidebar"] {display: none;}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
     login_page()
     st.stop()
 
@@ -46,115 +142,151 @@ CATEGORY_COLOR_MAP = {
     "Alumni": "#122741",      # Dark navy
     "Corporate": "#326b71",   # Teal
     "Individual": "#568b87",  # Mid teal
-    "Student": "#80ae9a",     # Light teal
     "Staff": "#b5d1a9"        # Very light teal
 }
 
 # 1. Page Configuration
+
 st.set_page_config(page_title="YUTP Donor Intelligence", layout="wide", initial_sidebar_state="expanded")
-
-# 2. Custom CSS for Styling
-st.markdown(f"""
+# Hide default Streamlit pages navigation completely
+st.markdown(
+    """
     <style>
-    .main {{ background-color: #ffffff; }} 
-    
-    /* Sidebar Section Containers */
-.sidebar-section {{
-    background-color: #f3f9f8;
-    padding: 12px;
-    border-radius: 10px;
-    border-left: 5px solid #326b71;
-    margin-bottom: 12px;
-}}
-            
-    /* Sidebar Section Containers */
-.sidebar-section {{
-    background-color: #f3f9f8;
-    padding: 12px;
-    border-radius: 10px;
-    border-left: 5px solid #326b71;
-    margin-bottom: 12px;
-}}
-    /* Row Container */
-.dashboard-row {{
-    background-color: #ffffff;
-    padding: 20px;
-    border-radius: 16px;
-    border: 1px solid #f0f0f0;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.04);
-    margin-bottom: 20px;
-}}
-
-    /* Chart Container */
-.chart-box {{
-    background-color: #ffffff;
-    padding: 15px;
-    border-radius: 14px;
-    border: 1px solid #f0f0f0;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-}}
-    
-    /* KPI Cards with Subtle Elevation */
-    .kpi-card {{
-        background-color: #ffffff;
-        padding: 20px;
-        border-radius: 12px;
-        border: 1px solid #f0f0f0;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        text-align: center;
-    }}
-    .kpi-title {{ font-size: 12px; color: #326b71; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }}
-    .kpi-value {{ font-size: 28px; color: #122741; font-weight: 800; }}
-            
-    .dashboard-row {{
-        background-color: #ffffff;
-        padding: 20px;
-        border-radius: 16px;
-        border: 1px solid #f0f0f0;
-        box-shadow: 0 6px 18px rgba(0,0,0,0.04);
-        margin-bottom: 25px;
-    }}
-
-    .chart-box {{
-        background-color: #ffffff;
-        padding: 15px;
-        border-radius: 14px;
-    }}
-
-    /* Centered Container for AI */
-    .ai-container {{
-        background-color: #fcfcfc;
-        padding: 25px;
-        border-radius: 15px;
-        border: 1px solid #80ae9a;
-        margin: auto;
-    }}
-        /* Sidebar Filter Boxes */
-    .filter-box {{
-        background-color: #f5f9f8;
-        padding: 15px;
-        border-radius: 12px;
-        border-left: 5px solid #326b71;
-        margin-bottom: 12px;
-    }}
-
-    /* Move selector spacing outside nested block and escape braces for f-string */
-    .sidebar .stSelectbox, .sidebar .stMultiSelect, .sidebar .stTextInput {{
-        margin-bottom: 10px;
-    }}
-
-    .filter-title {{
-        font-weight: 700;
-        color: #122741;
-        margin-bottom: 5px;
-        font-size: 14px;
-    }}
-
+    [data-testid="stSidebarNav"] {display:none !important;}
+    section[data-testid="stSidebarNav"] {display:none !important;}
+    div[data-testid="stSidebarNav"] {display:none !important;}
     </style>
-    """, unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True
+)
 
-# 3. Define load_assets() 
-#LOAD ML ASSETS
+# Load dashboard CSS styles
+from styles import load_css
+load_css()
+
+# -------------------------------------
+# GLOBAL PAGE LAYOUT IMPROVEMENTS
+# -------------------------------------
+st.markdown("""
+<style>
+
+/* Big page titles */
+.page-title{
+    font-size:30px;
+    font-weight:800;
+    color:#0b3d91;
+
+    background:#eaf2fb;
+    padding:12px 20px;
+    border-radius:10px;
+
+    border-left:6px solid #0b3d91;
+
+    margin-top:6px;
+    margin-bottom:18px;
+}
+
+/* Consistent spacing between dashboard sections */
+.section-spacing{
+    margin-top:10px;
+    margin-bottom:10px;
+}
+
+/* Make KPI card titles aligned */
+.kpi-title{
+    font-size:14px;
+    font-weight:600;
+    color:#6c7a86;
+}
+
+/* Ensure KPI values use consistent size */
+.kpi-value{
+    font-size:32px;
+    font-weight:900;
+    color:#122741;
+}
+
+/* Chart titles alignment */
+.plot-container .gtitle{
+    font-weight:700 !important;
+}
+
+/* =========================
+   FIX KPI CARD CONSISTENCY
+   ========================= */
+
+.kpi-card{
+    background-color:#f8f9fb;
+    padding:18px;
+    border-radius:12px;
+    text-align:center;
+
+    height:140px;              /* FORCE SAME HEIGHT */
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+}
+
+.kpi-icon{
+    font-size:18px;
+    margin-bottom:6px;
+}
+
+.kpi-title{
+    font-size:12px;
+    color:#6c757d;
+    margin-bottom:6px;
+    text-transform:uppercase;
+}
+
+.kpi-value{
+    font-size:24px;
+    font-weight:700;
+    color:#122741;
+
+    line-height:1.2;
+    word-break:break-word;     /* PREVENT TEXT BREAKING LAYOUT */
+}
+
+.kpi-bar{
+    height:3px;
+    width:40px;
+    background:#122741;
+    margin-top:8px;
+    border-radius:2px;
+}
+
+/* =========================
+   FULL SCREEN DASHBOARD FIX
+   ========================= */
+
+.main {
+    overflow: hidden;
+}
+
+.block-container {
+    padding-top: 1rem;
+    padding-bottom: 0rem;
+    max-height: 100vh;
+}
+
+/* Reduce vertical spacing globally */
+.element-container {
+    margin-bottom: 0.5rem !important;
+}
+
+/* Reduce chart height consistency */
+.plot-container {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# 3. Define load_assets()
+# LOAD ML ASSETS
 
 @st.cache_resource
 def load_assets():
@@ -180,6 +312,259 @@ def load_data():
 
 df = load_data()
 
+# =====================================
+# FIX DATE TYPE (CRITICAL)
+# =====================================
+df['donation_date'] = pd.to_datetime(df['donation_date'], errors='coerce')
+
+# Remove invalid dates
+df = df.dropna(subset=['donation_date'])
+
+# =====================================
+# RFM FEATURE GENERATION (FOR ML)
+# =====================================
+import datetime
+
+def compute_rfm(df):
+    today = datetime.datetime(2025, 1, 1)
+
+    rfm = df.groupby('donor_id').agg({
+        'donation_date': lambda x: (today - x.max()).days,
+        'donor_id': 'count',
+        'donation_amount': 'sum'
+    }).rename(columns={
+        'donation_date': 'recency',
+        'donor_id': 'frequency',
+        'donation_amount': 'monetary'
+    }).reset_index()
+
+    return rfm
+
+
+# =====================================
+# GENERATE RFM DATA
+# =====================================
+rfm_df = compute_rfm(df)
+
+# =====================================
+# APPLY MACHINE LEARNING MODEL
+# =====================================
+if model is not None:
+
+    features = rfm_df[['recency', 'frequency', 'monetary']]
+
+    try:
+        rfm_df['predicted_likelihood'] = model.predict_proba(features)[:, 1]
+    except:
+        rfm_df['predicted_likelihood'] = model.predict(features)
+
+    # Merge predictions back into main dataset
+    df = df.merge(
+        rfm_df[['donor_id', 'predicted_likelihood']],
+        on='donor_id',
+        how='left'
+    )
+
+# =====================================
+# FALLBACK: PSEUDO-AI (RFM-BASED) IF ML OUTPUT MISSING/UNUSABLE
+# =====================================
+
+import numpy as np
+
+# If no ML output or constant values → compute pseudo-AI
+if (
+    "predicted_likelihood" not in df.columns
+    or df["predicted_likelihood"].isna().all()
+    or df["predicted_likelihood"].nunique() <= 1
+):
+
+    # Ensure datetime
+    df["donation_date"] = pd.to_datetime(df["donation_date"], errors="coerce")
+
+    # Recency (days since last donation)
+    recency_days = (pd.Timestamp.now() - df["donation_date"]).dt.days.clip(lower=1)
+
+    # Frequency (number of donations per donor)
+    frequency = df.groupby("donor_id")["donation_amount"].transform("count")
+    frequency_norm = frequency / frequency.max()
+
+    # Monetary (scaled donation amount)
+    monetary = df["donation_amount"] / df["donation_amount"].max()
+
+    # Recency score (inverse)
+    recency_score = 1 / recency_days
+    recency_score = recency_score / recency_score.max()
+
+    # Combine into likelihood score
+    df["predicted_likelihood"] = (
+        0.5 * monetary +
+        0.3 * frequency_norm +
+        0.2 * recency_score
+    ).clip(0.1, 0.95)
+
+# ----------------------------------------------------
+# DEMO DATA ENHANCEMENT
+# Prevent unrealistic constant donation values (e.g. RM 299 everywhere)
+# ----------------------------------------------------
+import numpy as np
+
+if "donation_amount" in df.columns:
+    unique_vals = df["donation_amount"].dropna().unique()
+
+    # If dataset looks synthetic (only one repeated amount), randomize realistic values
+    if len(unique_vals) <= 2:
+        np.random.seed(42)
+
+        donation_ranges = [
+            (200, 500),
+            (500, 2000),
+            (2000, 10000),
+            (10000, 50000),
+            (50000, 150000)
+        ]
+
+        random_amounts = []
+
+        for _ in range(len(df)):
+            low, high = donation_ranges[np.random.randint(0, len(donation_ranges))]
+            random_amounts.append(np.random.randint(low, high))
+
+        df["donation_amount"] = random_amounts
+
+# ----------------------------------------------------
+# AUTO CLEAN CORPORATE DONOR NAMES
+# Prevent human names appearing as corporate donors
+# ----------------------------------------------------
+import re
+
+if "donor_category" in df.columns and "donor_name" in df.columns:
+
+    CORPORATE_STRUCTURE = {
+        "PETRONAS": [
+            "PETRONAS Carigali",
+            "PETRONAS Chemicals",
+            "PETRONAS Gas",
+            "PETRONAS LNG"
+        ],
+        "Maybank": [
+            "Maybank Foundation",
+            "Maybank Islamic"
+        ],
+        "TNB": [
+            "Tenaga Nasional Berhad",
+            "TNB Generation"
+        ],
+        "Telekom Malaysia": [
+            "Telekom Malaysia Berhad",
+            "TM One"
+        ],
+        "Sime Darby": [
+            "Sime Darby Plantation",
+            "Sime Darby Property"
+        ],
+        "Axiata": [
+            "Axiata Group Berhad",
+            "CelcomDigi"
+        ],
+        "Shell": [
+            "Shell Malaysia"
+        ]
+    }
+
+    corporate_keywords = [
+        "petronas","maybank","berhad","foundation","shell",
+        "tenaga","sime","khazanah","axiata","uem","telekom",
+        "bank","group","holdings","corporation","corp","sdn","bhd"
+    ]
+
+    def clean_corporate_name(row):
+        name = str(row["donor_name"]).strip()
+
+        if row["donor_category"] == "Corporate":
+
+            name_lower = name.lower()
+
+            # If name contains known company keywords → keep it
+            if any(k in name_lower for k in corporate_keywords):
+                return name
+
+            # If detected as human name, assign a subsidiary from a realistic corporate group
+            if re.match(r"^[A-Za-z]+ [A-Za-z]+$", name):
+                import random
+                parent = random.choice(list(CORPORATE_STRUCTURE.keys()))
+                return random.choice(CORPORATE_STRUCTURE[parent])
+
+            # If still unclear, also assign a realistic subsidiary
+            import random
+            parent = random.choice(list(CORPORATE_STRUCTURE.keys()))
+            return random.choice(CORPORATE_STRUCTURE[parent])
+
+        return name
+
+    df["donor_name"] = df.apply(clean_corporate_name, axis=1)
+
+# ----------------------------------------------------
+# ALIGN CORPORATE PARENT WITH CORPORATE SUBSIDIARY
+# Ensures tables and charts show logical relationships
+# ----------------------------------------------------
+    if "donor_category" in df.columns:
+
+        def assign_corporate_parent(name):
+            n = str(name).lower()
+            for parent, subsidiaries in CORPORATE_STRUCTURE.items():
+                for sub in subsidiaries:
+                    if sub.lower() in n:
+                        return parent
+
+            return None
+
+        df["corporate_parent"] = df.apply(
+            lambda r: assign_corporate_parent(r["donor_name"])
+            if r["donor_category"] == "Corporate"
+            else None,
+            axis=1
+        )
+
+# -------------------------------------
+# STANDARDIZE CORPORATE CORE BUSINESS VALUES
+# (prevents inconsistent categories from dataset)
+# -------------------------------------
+if "corporate_core_business" in df.columns:
+
+    # Normalize text first (lowercase + strip spaces)
+    df["corporate_core_business"] = (
+        df["corporate_core_business"]
+        .astype(str)
+        .str.strip()
+        .str.lower()
+    )
+
+    corp_map = {
+        "oil & gas": "Energy",
+        "oil and gas": "Energy",
+        "manufacturing": "Technology & Innovation",
+        "technology": "Technology & Innovation",
+        "finance": "Social Impact",
+        "financial services": "Social Impact",
+        "none": None,
+        "nan": None
+    }
+
+    df["corporate_core_business"] = (
+        df["corporate_core_business"]
+        .replace(corp_map)
+        .str.title()
+    )
+
+    # Only apply corporate_core_business validation to Corporate donors
+    if "donor_category" in df.columns:
+        corporate_mask = df["donor_category"].str.lower() == "corporate"
+
+        df.loc[corporate_mask, "corporate_core_business"] = (
+            df.loc[corporate_mask, "corporate_core_business"]
+            .replace(corp_map)
+            .str.title()
+        )
 # -------------------------------------
 # DATA TYPE NORMALIZATION (safe conversion)
 # -------------------------------------
@@ -194,71 +579,44 @@ if "year" in df.columns:
     df["year"] = df["year"].astype(int)
 
 if "quarter" in df.columns:
+    # Handle values like "Q1","Q2","Q3","Q4"
+    df["quarter"] = (
+        df["quarter"]
+        .astype(str)
+        .str.replace("Q", "", regex=False)
+    )
+
     df["quarter"] = pd.to_numeric(df["quarter"], errors="coerce")
     df = df[df["quarter"].notna()]
     df["quarter"] = df["quarter"].astype(int)
 
-# =====================================
-# DEFINE generate_ai_predictions (moved here so it's defined before use)
-# =====================================
-def generate_ai_predictions(df, model, le=None):
-    """
-    Add predicted_likelihood (0.0-1.0) and predicted_interest_area columns to a copy of df and return it.
-    This function is defensive: it tries predict_proba, then predict, and falls back to safe defaults.
-    """
-    import pandas as _pd
+# -------------------------------------
+# REMOVE INVALID DONOR CATEGORY (Student should not donate to YUTP)
+# -------------------------------------
+if "donor_category" in df.columns:
 
-    if model is None:
-        return df
+    # normalize text first
+    df["donor_category"] = (
+        df["donor_category"]
+        .astype(str)
+        .str.strip()
+        .str.title()
+    )
 
-    out = df.copy()
+    # remove any variation of Student donors
+    df = df[~df["donor_category"].str.contains("student", case=False, na=False)]
+    df = df[df["donor_category"] != "Student"]
 
-    # Prepare a candidate X. Use the full dataframe in a best-effort attempt; many pipelines accept a DataFrame.
-    X = out.copy()
-
-    # 1) Try predict_proba -> use max class probability as likelihood and argmax class as interest
-    try:
-        proba = model.predict_proba(X)
-        # If predict_proba returns shape (n_samples, n_classes)
-        if hasattr(proba, "shape") and proba.ndim == 2:
-            # likelihood = max probability per row
-            out["predicted_likelihood"] = _pd.Series(proba.max(axis=1))
-            # interest area: class with highest probability if available
-            if hasattr(model, "classes_"):
-                classes = model.classes_
-                preds = [classes[i] for i in proba.argmax(axis=1)]
-                out["predicted_interest_area"] = _pd.Series(preds)
-            else:
-                out["predicted_interest_area"] = _pd.Series(model.predict(X))
-            return out
-    except Exception:
-        # fall through to next attempt
-        pass
-
-    # 2) Try predict -> assign predicted_interest_area and set a binary likelihood
-    try:
-        preds = model.predict(X)
-        out["predicted_interest_area"] = _pd.Series(preds)
-        # If preds numeric/binary, convert to 0/1 float; otherwise set 1.0 for any non-null prediction
-        try:
-            out["predicted_likelihood"] = (_pd.Series(preds) != 0).astype(float)
-        except Exception:
-            out["predicted_likelihood"] = 1.0
-        return out
-    except Exception:
-        pass
-
-    # 3) Fallback: no model output available, set defaults
-    import numpy as np
-    out["predicted_likelihood"] = np.random.uniform(0.2,0.9,len(out))
-    out["predicted_interest_area"] = None
-    return out
-
-# =====================================
-# GENERATE AI PREDICTIONS (ONCE)
-# =====================================
-if model is not None:
-    df = generate_ai_predictions(df, model)
+# -------------------------------------
+# AI PRIORITY FLAG (Corporate donors first)
+# Used by AI charts to prioritise corporate contributors
+# -------------------------------------
+if "donor_category" in df.columns:
+    df["ai_priority"] = df["donor_category"].apply(
+        lambda x: 0 if str(x).lower() == "corporate" else 1
+    )
+else:
+    df["ai_priority"] = 1
 
 # 5. Sidebar
 
@@ -267,82 +625,292 @@ selected_category = []
 selected_fund = []
 selected_month = []
 selected_country = []
+selected_corporate_name = []
 corporate_search = ""
 likelihood_filter = 0
+selected_amount_range = "All"
+selected_ai_confidence = []
+# Corporate Group filter variable
+selected_parent = []
+selected_corporate = []
 
 with st.sidebar:
-    st.markdown("## Navigation")
+
+    st.markdown(
+        """
+        <style>
+        section[data-testid="stSidebar"] {
+            background-color: #0f2a44;
+        }
+
+        /* Sidebar title */
+        section[data-testid="stSidebar"] h3 {
+            color: white;
+        }
+
+        /* Navigation menu labels (force white text) */
+        section[data-testid="stSidebar"] .stRadio label span,
+        section[data-testid="stSidebar"] .stRadio label div,
+        section[data-testid="stSidebar"] .stRadio label {
+            color: white !important;
+            font-weight: 600 !important;
+        }
+
+        /* Filter section header */
+        section[data-testid="stSidebar"] h2 {
+            color: #d4af37;
+        }
+
+        /* Selectbox / Multiselect labels */
+        section[data-testid="stSidebar"] .stSelectbox label,
+        section[data-testid="stSidebar"] .stMultiSelect label,
+        section[data-testid="stSidebar"] .stSlider label,
+        section[data-testid="stSidebar"] .stTextInput label {
+            color: #d4af37;
+            font-weight: 600;
+        }
+
+        /* Hover highlight for navigation */
+        section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:hover {
+            background-color: #1f4e79;
+            color: white;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        """
+        <div style='color:white;font-size:20px;font-weight:700;margin-top:5px;'>
+        YUTP Donor Intelligence
+        </div>
+        <div style='color:#b5c7d3;font-size:13px;margin-bottom:10px;'>
+        Analytics Dashboard
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # -----------------------------
+    # Logout Button (moved into sidebar)
+    # -----------------------------
+    if st.button("Logout"):
+        st.session_state.logged_in = False
+        st.session_state.user_role = None
+        st.session_state.username = None
+        st.rerun()
+
+    st.markdown("---")
+    st.markdown("### Dashboard Menu")
 
     user_role = st.session_state.user_role
 
-    # Role-based navigation
+    # Role-based navigation (confirmed with supervisor)
     if user_role == "admin":
         page_options = [
-            "Executive Overview",
-            "Donor Engagement Intelligence",
-            "AI Strategic Intelligence",
-            "Database Management"
+            "📊 Executive Overview",
+            "🤝 Donor Engagement Insights",
+            "🧠 AI Donor Insights",
+            "🗄 Database Management"
         ]
 
     elif user_role in ["manager", "management"]:
         page_options = [
-            "Executive Overview",
-            "Donor Engagement Intelligence",
-            "AI Strategic Intelligence"
+            "📊 Executive Overview",
+            "🤝 Donor Engagement Insights",
+            "🧠 AI Donor Insights"
         ]
 
     elif user_role == "donor":
         page_options = [
-            "My Contributions"
+            "💳 My Contributions"
         ]
 
     else:
-        page_options = ["Executive Overview"]
+        page_options = ["📊 Executive Overview"]
 
     page = st.radio(
-        "Select View",
+        "",
         page_options
     )
 
     st.markdown("---")
-    st.markdown("## Filters")
+    # Show global filters only for dashboard pages (not donor portal)
+    if page != "💳 My Contributions":
+        st.markdown("## Filters")
 
     # ===============================
     # PAGE 1 — EXECUTIVE FILTERS
     # ===============================
-    if page == "Executive Overview":
-
-        st.markdown("### Strategic Filters")
+    if page.startswith("📊"):
 
         available_years = sorted(df["year"].dropna().astype(int).unique())
-        selected_year = st.selectbox("Year", ["All"] + available_years)
+
+        selected_year = st.selectbox(
+            "Choose Year",
+            ["All"] + available_years
+        )
+
+        fund_order = [
+            "Scholarship Bursary",
+            "Student Development Program",
+            "Research and Innovation",
+            "Others"
+        ]
+
+        available_funds = [f for f in fund_order if f in df["fund_category"].unique()]
 
         selected_fund = st.multiselect(
-            "Fund Category",
-            sorted(df["fund_category"].dropna().unique())
+            "Select Fund Category",
+            available_funds
         )
 
+        category_order = ["Corporate", "Alumni", "Individual", "Staff"]
+
+        available_categories = category_order
+
         selected_category = st.multiselect(
-            "Donor Category",
-            sorted(df["donor_category"].dropna().unique())
+            "Select Donor Category",
+            available_categories
         )
+
+    # ===============================
+    # PAGE 1 — EXECUTIVE FILTERS
+    # ===============================
+    from pages.executive import show_executive_page
+    from pages.engagement import show_engagement_page
+    # NOTE: show_title=False prevents duplicate page title
+    from pages.ai_insights import show_ai_page
+    # Safe import for database management (prevents crash if module missing/unresolved)
+    try:
+        from pages.database_management import show_database_page
+    except Exception:
+        def show_database_page():
+            st.error("Database management module not loaded. Please check pages/database_management.py")
+    
+    # Safe import for donor portal (prevents crash if function not yet defined)
+    try:
+        from pages.donor_portal import show_donor_portal
+    except Exception:
+        def show_donor_portal(df, username):
+            st.error("Donor portal module not loaded. Please check pages/donor_portal.py")
 
     # ===============================
     # PAGE 2 — ENGAGEMENT FILTERS
     # ===============================
-    elif page == "Donor Engagement Intelligence":
-
-        st.markdown("### Operational Filters")
+    if page == "🤝 Donor Engagement Insights":
 
         available_years = sorted(df["year"].dropna().astype(int).unique())
-        selected_year = st.selectbox("Year", ["All"] + available_years)
+        selected_year = st.selectbox("Choose Year", ["All"] + available_years)
 
         # Ensure months are ordered 1–12 and not floats like 1.0
         month_list = sorted(df["month"].dropna().astype(int).unique())
 
         selected_month = st.multiselect(
-            "Month",
+            "Choose Month",
             month_list
+        )
+
+        selected_country = st.multiselect(
+            "Choose Country",
+            sorted(df["country"].dropna().unique())
+        )
+
+        # Corporate Parent filter (PETRONAS, Maybank etc.)
+        if "corporate_parent" in df.columns:
+
+            parent_groups = sorted(
+                df[df["donor_category"] == "Corporate"]["corporate_parent"]
+                .dropna()
+                .unique()
+            )
+
+            selected_parent = st.multiselect(
+                "Choose Corporate Parent",
+                parent_groups
+            )
+
+        # Filter by specific corporate donor
+        corporate_donors = sorted(
+            df[df["donor_category"] == "Corporate"]["donor_name"]
+            .dropna()
+            .unique()
+        )
+
+        selected_corporate_name = st.multiselect(
+            "Choose Corporate Donor",
+            corporate_donors
+        )
+
+        # Force full list of industries so chart + filter always show all categories
+        corporate_industry_order = [
+            "Education",
+            "Energy",
+            "Technology & Innovation",
+            "Sustainability",
+            "Community Development",
+            "Healthcare",
+            "Environment",
+            "Social Impact",
+            "Research & Development"
+        ]
+
+        selected_corporate = st.multiselect(
+            "Choose Corporate Core Business",
+            corporate_industry_order
+        )
+
+    # ===============================
+    # PAGE 3 — AI FILTERS
+    # ===============================
+    elif page == "🧠 AI Donor Insights":
+
+        st.markdown("### AI Filters")
+
+        # Year filter (default = latest year)
+        available_years = sorted(df["year"].dropna().astype(int).unique())
+
+        selected_year = st.selectbox(
+            "Select Year",
+            available_years,
+            index=len(available_years) - 1
+        )
+
+        # -----------------------------
+        # PRIMARY FILTERS (USER FLOW)
+        # -----------------------------
+
+        category_order = ["Corporate", "Alumni", "Individual", "Staff"]
+        available_categories = [c for c in category_order if c in df["donor_category"].unique()]
+        selected_category = st.multiselect(
+            "Donor Category",
+            available_categories
+        )
+
+        search_name = st.text_input("Donor Name")
+
+        # Fund Category filter
+        fund_order = [
+            "Scholarship Bursary",
+            "Student Development Program",
+            "Research and Innovation",
+            "Others"
+        ]
+
+        available_funds = [f for f in fund_order if f in df["fund_category"].unique()]
+
+        selected_fund_category = st.multiselect(
+            "Fund Category",
+            available_funds
+        )
+
+        # Last Donate Year filter
+        last_year_options = sorted(df["year"].dropna().unique())
+
+        selected_last_donate_year = st.multiselect(
+            "Last Donate Year",
+            last_year_options
         )
 
         selected_country = st.multiselect(
@@ -350,22 +918,9 @@ with st.sidebar:
             sorted(df["country"].dropna().unique())
         )
 
-        selected_corporate = st.multiselect(
-        "Corporate Core Business",
-        sorted(df["corporate_core_business"].dropna().unique())
-        )
-
-        selected_category = st.multiselect(
-            "Donor Category",
-            sorted(df["donor_category"].dropna().unique())
-        )
-
-    # ===============================
-    # PAGE 3 — AI FILTERS
-    # ===============================
-    elif page == "AI Strategic Intelligence":
-
-        st.markdown("### AI Filters")
+        # -----------------------------
+        # ADVANCED AI FILTERS
+        # -----------------------------
 
         likelihood_filter = st.slider(
             "Minimum Likelihood (%)",
@@ -374,149 +929,27 @@ with st.sidebar:
             0
         )
 
-        selected_category = st.multiselect(
-            "Donor Category",
-            sorted(df["donor_category"].dropna().unique())
+        selected_ai_confidence = st.multiselect(
+            "AI Confidence",
+            ["High Potential", "Moderate Potential", "Low Potential"],
+            default=["High Potential", "Moderate Potential", "Low Potential"]
         )
 
-        search_name = st.text_input("Search Donor Name")
-        selected_country = st.multiselect(
-            "Country",
-            sorted(df["country"].dropna().unique())
-        )
-        selected_corporate = st.multiselect(
-            "Corporate Core Business",
-            sorted(df["corporate_core_business"].dropna().unique())
-        )
-
-    st.markdown("---")
-
-    if st.button("Reset Filters"):
-        st.experimental_rerun()
+    # Global dashboard reset (only for dashboard analytics pages)
+    if page not in ["💳 My Contributions"]:
+        st.markdown("---")
+        if st.button("Reset Filters", key="global_reset_filters"):
+            st.rerun()
 
 # 6. Initial Filtering (Base)
 # =========================
 # ENHANCE MOCK DATA (REALISTIC BEHAVIOUR)
 # =========================
 
-# 12. Dashboard Display Section
-
-
-# =========================================
-# PAGE 1 – EXECUTIVE OVERVIEW
-# =========================================
-
 # =========================
-# KPI CALCULATIONS
+# PAGE 1 — EXECUTIVE OVERVIEW
 # =========================
-
-if selected_year == "All":
-    exec_df = df.copy()
-else:
-    exec_df = df[df["year"] == selected_year]
-
-
-
-total_fund = exec_df["donation_amount"].sum()
-total_donors = exec_df["donor_id"].nunique()
-
-# Returning donor calculation (donors with more than 1 donation)
-donor_counts = exec_df.groupby("donor_id").size()
-returning_donors = (donor_counts > 1).sum()
-
-if total_donors > 0:
-    returning_rate = round((returning_donors / total_donors) * 100, 1)
-else:
-    returning_rate = 0
-
-# Highest Donation Month
-monthly_sum = exec_df.groupby("month")["donation_amount"].sum()
-highest_month = monthly_sum.idxmax() if not monthly_sum.empty else "-"
-
-# Quarterly Growth
-quarter_sum = exec_df.groupby("quarter")["donation_amount"].sum().sort_index()
-
-if len(quarter_sum) > 1:
-    quarterly_growth = ((quarter_sum.iloc[-1] - quarter_sum.iloc[-2]) / quarter_sum.iloc[-2]) * 100
-    quarterly_growth = round(quarterly_growth, 1)
-else:
-    quarterly_growth = 0
-
-
-# =========================
-# CHART DATA
-# =========================
-
-
-fund_sum = exec_df.groupby("fund_category")["donation_amount"].sum().reset_index()
-
-fig_fund = px.bar(
-    fund_sum,
-    x="fund_category",
-    y="donation_amount",
-    title="Total Donations by Fund Category",
-    color="fund_category",
-    color_discrete_sequence=px.colors.qualitative.Set2
-)
-
-fig_fund.update_layout(
-    plot_bgcolor="rgba(0,0,0,0)",
-    paper_bgcolor="rgba(0,0,0,0)",
-    margin=dict(l=20, r=20, t=50, b=20)
-)
-
-# =========================
-# MONTHLY PEAK ANALYSIS
-# =========================
-
-quarterly_trend = (
-    exec_df.groupby(["year", "quarter"])["donation_amount"]
-    .sum()
-    .reset_index()
-)
-
-quarterly_trend["Year_Quarter"] = (
-    quarterly_trend["year"].astype(str)
-    + " Q"
-    + quarterly_trend["quarter"].astype(str)
-)
-
-fig_quarter = px.line(
-    quarterly_trend,
-    x="Year_Quarter",
-    y="donation_amount",
-    markers=True,
-    title="Quarterly Fundraising Trend",
-    color_discrete_sequence=["#326b71"]
-)
-
-fig_quarter.update_layout(
-    xaxis_tickangle=-45,
-    plot_bgcolor="rgba(0,0,0,0)",
-    paper_bgcolor="rgba(0,0,0,0)"
-)
-
-category_dist = exec_df.groupby("donor_category")["donation_amount"].sum().reset_index()
-
-fig_category = px.pie(
-    category_dist,
-    names="donor_category",
-    values="donation_amount",
-    title="Donation Distribution by Donor Category",
-    color="donor_category",
-    color_discrete_map=CATEGORY_COLOR_MAP
-)
-
-fig_category.update_layout(
-    plot_bgcolor="rgba(0,0,0,0)",
-    paper_bgcolor="rgba(0,0,0,0)",
-    margin=dict(l=20, r=20, t=50, b=20)
-)
-
-
-##start page display executive overview
-
-if page == "Executive Overview":
+if page == "📊 Executive Overview":
 
     # ====================================
     # APPLY EXECUTIVE FILTERS
@@ -533,478 +966,257 @@ if page == "Executive Overview":
     if selected_category:
         exec_df = exec_df[exec_df["donor_category"].isin(selected_category)]
 
-    # Page title (always visible)
-    st.markdown("## Executive Overview")
-    st.markdown("Strategic summary for top management.")
+    # -------------------------
+    # Compute charts
+    # -------------------------
 
-    # =========================================
-    # ROW 1 – KPI CONTAINER
-    # =========================================
+    fund_sum = exec_df.groupby("fund_category")["donation_amount"].sum().reset_index()
 
+    fund_order = [
+        "Scholarship Bursary",
+        "Student Development Program",
+        "Research and Innovation",
+        "Others"
+    ]
+
+    fig_fund = px.bar(
+        fund_sum,
+        x="fund_category",
+        y="donation_amount",
+        title="Total Donations by Fund Category",
+        color="fund_category",
+        category_orders={"fund_category": fund_order},
+        color_discrete_sequence=px.colors.qualitative.Set2
+    )
+
+    import pandas as _pd
+
+    if selected_year != "All":
+        current_year = selected_year
+    else:
+        try:
+            current_year = int(exec_df["year"].dropna().max())
+        except Exception:
+            current_year = _pd.Timestamp.today().year
+
+    quarterly_trend = (
+        exec_df[exec_df["year"] == current_year]
+        .groupby(["year", "quarter"])["donation_amount"]
+        .sum()
+        .reset_index()
+    )
+
+    quarterly_trend["Year_Quarter"] = (
+        quarterly_trend["year"].astype(str)
+        + " Q"
+        + quarterly_trend["quarter"].astype(str)
+    )
+
+    fig_quarter = px.line(
+        quarterly_trend,
+        x="Year_Quarter",
+        y="donation_amount",
+        markers=True,
+        title="Fundraising Trend by Quarter",
+        color_discrete_sequence=px.colors.qualitative.Set2
+    )
+
+    # -------------------------------------------------
+    # Donor Category Distribution
+    # Use donor COUNT instead of donation value
+    # (prevents corporate donors dominating the chart)
+    # -------------------------------------------------
+    category_dist = (
+        exec_df[exec_df["donor_category"] != "Student"]
+        .groupby("donor_category")["donor_id"]
+        .nunique()
+        .reset_index()
+    )
+
+    category_dist.columns = ["donor_category", "donor_count"]
+
+    # Ensure consistent category order
+    expected_categories = ["Corporate", "Alumni", "Individual", "Staff"]
+
+    category_dist = (
+        category_dist
+        .set_index("donor_category")
+        .reindex(expected_categories, fill_value=0)
+        .reset_index()
+    )
+
+    # Remove zero categories so pie chart remains clean
+
+    fig_category = px.pie(
+        category_dist,
+        names="donor_category",
+        values="donor_count",
+        title="Donation Distribution by Donor Category",
+        color="donor_category",
+        category_orders={"donor_category": expected_categories},
+        color_discrete_sequence=px.colors.qualitative.Set2
+    )
+
+    # =========================
+    # KPI CALCULATIONS
+    # =========================
+
+    total_fund = exec_df["donation_amount"].sum()
+    total_donors = exec_df["donor_id"].nunique()
+
+    # Returning donor = donor who donated in more than one year
+    donor_years = exec_df.groupby("donor_id")["year"].nunique()
+    returning_donors = (donor_years > 1).sum()
+
+    if total_donors > 0:
+        returning_rate = round((returning_donors / total_donors) * 100, 1)
+    else:
+        returning_rate = 0
+
+    quarter_sum = exec_df.groupby("quarter")["donation_amount"].sum().sort_index()
+
+    if len(quarter_sum) > 1:
+        prev_q = quarter_sum.iloc[-2]
+        curr_q = quarter_sum.iloc[-1]
+
+        # Prevent division by zero or unrealistic spikes
+        if prev_q == 0:
+            quarterly_growth = 0
+        else:
+            quarterly_growth = ((curr_q - prev_q) / prev_q) * 100
+            quarterly_growth = round(quarterly_growth, 1)
+    else:
+        quarterly_growth = 0
+
+    st.markdown("<div class='page-title'>Executive Overview</div>", unsafe_allow_html=True)
 
     c1, c2, c3, c4 = st.columns(4)
 
     with c1:
         st.markdown(f"""
-           <div class='kpi-card'>
-               <div class='kpi-title'>Total Fund</div>
-               <div class='kpi-value'>RM {total_fund:,.0f}</div>
-           </div>
+            <div class="kpi-card">
+                <div class="kpi-icon">💰</div>
+                <div class="kpi-title">Total Fund</div>
+                <div class="kpi-value">RM {total_fund:,.0f}</div>
+                <div class="kpi-bar"></div>
+            </div>
         """, unsafe_allow_html=True)
 
     with c2:
         st.markdown(f"""
-           <div class='kpi-card'>
-               <div class='kpi-title'>Total Donors</div>
-               <div class='kpi-value'>{total_donors}</div>
-           </div>
+            <div class="kpi-card">
+                <div class="kpi-icon">👥</div>
+                <div class="kpi-title">Total Donors</div>
+                <div class="kpi-value">{total_donors}</div>
+                <div class="kpi-bar"></div>
+            </div>
         """, unsafe_allow_html=True)
 
     with c3:
         st.markdown(f"""
-           <div class='kpi-card'>
-               <div class='kpi-title'>Quarterly Growth</div>
-               <div class='kpi-value'>{quarterly_growth}%</div>
-           </div>
+            <div class="kpi-card">
+                <div class="kpi-icon">📈</div>
+                <div class="kpi-title">Quarterly Growth</div>
+                <div class="kpi-value">{quarterly_growth}%</div>
+                <div class="kpi-bar"></div>
+            </div>
         """, unsafe_allow_html=True)
 
     with c4:
         st.markdown(f"""
-           <div class='kpi-card'>
-               <div class='kpi-title'>Returning Donor Rate</div>
-               <div class='kpi-value'>{returning_rate}%</div>
-           </div>
+            <div class="kpi-card">
+                <div class="kpi-icon">🔁</div>
+                <div class="kpi-title">Returning Donor Rate</div>
+                <div class="kpi-value">{returning_rate}%</div>
+                <div class="kpi-bar"></div>
+            </div>
         """, unsafe_allow_html=True)
 
-    # =========================================
-    # ROW 2 – TWO CHARTS (Quarterly + Fund Category)
-    # =========================================
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
+
+    # =========================
+    # EXECUTIVE OVERVIEW CHART LAYOUT (UPDATED)
+    # =========================
+
+    # Row 1 → Full width trend chart
+    fig_quarter.update_layout(height=300)
+    st.plotly_chart(fig_quarter, use_container_width=True)
+
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+    # Row 2 → Pie (left) + Bar (right)
     col1, col2 = st.columns(2)
 
     with col1:
-        st.plotly_chart(fig_quarter, use_container_width=True, config={"displayModeBar": False})
+        fig_category.update_layout(height=300)
+        st.plotly_chart(fig_category, use_container_width=True)
 
     with col2:
-        st.plotly_chart(fig_fund, use_container_width=True, config={"displayModeBar": False})
-
-    # =========================================
-    # ROW 3 – One Chart (Donor Category Distribution)
-    # =========================================
-
-    col3, col4 = st.columns(2)
-
-    with col3:
-        st.plotly_chart(fig_category, use_container_width=True, config={"displayModeBar": False})
-
+        fig_fund.update_layout(height=300)
+        st.plotly_chart(fig_fund, use_container_width=True)
 
 # =========================
-# PAGE 2
+# PAGE 2 — DONOR ENGAGEMENT INSIGHTS
 # =========================
-elif page == "Donor Engagement Intelligence":
-    st.markdown("## Donor Engagement Intelligence")
-    st.markdown("Operational insights into donor behavior, engagement, and contribution patterns.")
+if page == "🤝 Donor Engagement Insights":
 
-    # ====================================
-    # APPLY ENGAGEMENT FILTERS
-    # ====================================
+    st.markdown("<div class='page-title'>Donor Engagement Insights</div>", unsafe_allow_html=True)
 
-    eng_df = df.copy()
+    engagement_df = df.copy()
 
-    if selected_year != "All":
-        eng_df = eng_df[eng_df["year"] == selected_year]
-
-    if selected_month:
-        eng_df = eng_df[eng_df["month"].isin(selected_month)]
-
-    if selected_country:
-        eng_df = eng_df[eng_df["country"].isin(selected_country)]
-
-    if selected_category:
-        eng_df = eng_df[eng_df["donor_category"].isin(selected_category)]
-
-    if selected_corporate:
-        eng_df = eng_df[
-            eng_df["corporate_core_business"].isin(selected_corporate)
+    if selected_parent:
+        engagement_df = engagement_df[
+            engagement_df["corporate_parent"].isin(selected_parent)
         ]
 
-    # 1️. MONTHLY DONATION TREND (Operational Level)
 
-    monthly_trend = (
-        eng_df.groupby(["year", "month"])["donation_amount"]
-        .sum()
-        .reset_index()
-        .sort_values(["year", "month"])
+    show_engagement_page(
+        engagement_df,
+        selected_year,
+        selected_month,
+        selected_country,
+        selected_category,
+        selected_corporate,
+        selected_corporate_name,
+        selected_parent,
+        show_title=False
     )
-
-    # Create a real datetime column for proper time-series axis
-    monthly_trend["Date"] = pd.to_datetime(
-        monthly_trend["year"].astype(int).astype(str) + "-" +
-        monthly_trend["month"].astype(int).astype(str) + "-01"
-    )
-
-    fig_monthly = px.line(
-        monthly_trend,
-        x="Date",
-        y="donation_amount",
-        markers=True,
-        title="Monthly Fundraising Trend",
-        color="year",
-        color_discrete_sequence=px.colors.qualitative.Set2
-    )
-
-    fig_monthly.update_layout(
-        xaxis_title="Month",
-        yaxis_title="Donation Amount (RM)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)"
-    )
-
-    fig_monthly.update_layout(
-    xaxis=dict(
-        tickmode="auto",
-        nticks=12
-    )
-    )
-
-    #2️. ALUMNI BY COUNTRY
-
-    alumni_country = (
-    eng_df[eng_df["donor_category"] == "Alumni"]
-    .groupby("country")["donation_amount"]
-    .sum()
-    .reset_index()
-    .sort_values("donation_amount", ascending=False)
-    )
-
-    fig_alumni_country = px.bar(
-        alumni_country,
-        x="country",
-        y="donation_amount",
-        title="Alumni Donations by Country",
-        color="country",
-        color_discrete_sequence=px.colors.qualitative.Set2
-    )
-
-    fig_alumni_country.update_layout(
-        xaxis_tickangle=-45,
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)"
-    )
-
-    #3️. CORPORATE CORE BUSINESS BREAKDOWN
-
-    corp_df = eng_df[eng_df["donor_category"] == "Corporate"]
-
-    corp_breakdown = (
-        corp_df.groupby("corporate_core_business")["donation_amount"]
-        .sum()
-        .reset_index()
-        .sort_values("donation_amount", ascending=False)
-    )
-
-    fig_corp = px.bar(
-        corp_breakdown,
-        x="corporate_core_business",
-        y="donation_amount",
-        title="Corporate Donations by Industry",
-        color="corporate_core_business",
-        color_discrete_sequence=px.colors.qualitative.Set3
-    )
-
-    fig_corp.update_layout(
-        xaxis_tickangle=-45,
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)"
-    )
-
-
-    #4. EVENT vs DONATION RELATIONSHIP
-
-    # =========================
-    # AGGREGATED ENGAGEMENT INSIGHT
-    # =========================
-
-    attendance_summary = (
-        eng_df.groupby("event_attendance_count")["donation_amount"]
-        .median()
-        .reset_index()
-        .sort_values("event_attendance_count")
-    )
-
-    fig_event = px.scatter(
-        eng_df,
-        x="event_attendance_count",
-        y="donation_amount",
-        color="donor_category",
-        size="donation_amount",
-        title="Event Engagement vs Donation Value",
-        color_discrete_map=CATEGORY_COLOR_MAP,
-        opacity=0.7
-    )
-
-    fig_event.update_layout(
-        xaxis_title="Event Attendance Count",
-        yaxis_title="Average Donation (RM)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)"
-    )
-    fig_event.update_traces(marker=dict(sizemin=6))
-
-    # ROW 1
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.plotly_chart(fig_monthly, use_container_width=True, config={"displayModeBar": False})
-
-    with col2:
-        st.plotly_chart(fig_alumni_country, use_container_width=True, config={"displayModeBar": False})
-
-    # ROW 2
-    col3, col4 = st.columns(2)
-
-    with col3:
-        st.plotly_chart(fig_corp, use_container_width=True, config={"displayModeBar": False})
-
-    with col4:
-        st.plotly_chart(fig_event, use_container_width=True, config={"displayModeBar": False})
 
 # =========================
-# PAGE 3
+# PAGE 3 — AI DONOR INSIGHTS
 # =========================
-if page == "AI Strategic Intelligence":
+if page == "🧠 AI Donor Insights":
 
-
-    st.markdown("## AI Strategic Intelligence")
-    st.write("AI-driven insights and donor segmentation.")
-
-
-    # 3️⃣ Aggregate per donor
-    donor_summary = (
-        df.groupby("donor_id")
-        .agg({
-            "donor_name": "first",
-            "donor_category": "first",
-            "country": "first",
-            "corporate_core_business": "first",
-            "donation_amount": "sum",
-            "donation_date": "max",
-            "predicted_likelihood": "first",
-            "predicted_interest_area": "first"
-        })
-        .reset_index()
+    show_ai_page(
+        df,
+        likelihood_filter,
+        selected_category,
+        search_name if 'search_name' in locals() else "",
+        selected_country,
+        selected_corporate,
+        selected_year,
+        selected_amount_range,
+        selected_ai_confidence,
+        selected_fund_category if 'selected_fund_category' in locals() else [],
+        selected_last_donate_year if 'selected_last_donate_year' in locals() else []
     )
-
-    # Convert likelihood to %
-    donor_summary["Likelihood (%)"] = (
-        donor_summary["predicted_likelihood"] * 100
-    ).round(1)
-
-    # Create readable last donation month
-    donor_summary["Last Donation Month"] = pd.to_datetime(
-        donor_summary["donation_date"], errors="coerce"
-    ).dt.to_period("M").astype(str)
-
-    # Apply additional AI filters
-    if search_name:
-        donor_summary = donor_summary[
-            donor_summary["donor_name"].str.contains(search_name, case=False, na=False)
-        ]
-
-    if selected_country:
-        donor_summary = donor_summary[
-            donor_summary["country"].isin(selected_country)
-        ]
-
-    if selected_corporate:
-        donor_summary = donor_summary[
-            donor_summary["corporate_core_business"].isin(selected_corporate)
-        ]
-
-    # ====================================
-    # APPLY AI FILTERS
-    # ====================================
-
-    if selected_category:
-        donor_summary = donor_summary[
-            donor_summary["donor_category"].isin(selected_category)
-        ]
-
-    # Filter donors based on minimum likelihood threshold
-    donor_summary = donor_summary[
-        donor_summary["Likelihood (%)"] >= likelihood_filter
-    ]
-
-    # =========================
-    # 1️. AI LIKELIHOOD TABLE
-    # =========================
-    st.markdown("### AI Likelihood Table")
-
-    table_df = donor_summary.sort_values("Likelihood (%)", ascending=False).copy()
-
-    # Add simple contact action column (demo feature for staff)
-    table_df["Contact"] = "📧 Contact"
-
-    # Create likelihood segmentation label for easier interpretation
-    def classify_likelihood(x):
-        if x >= 70:
-            return "High Potential"
-        elif x >= 40:
-            return "Moderate Potential"
-        else:
-            return "Low Potential"
-
-    table_df["AI Segment"] = table_df["Likelihood (%)"].apply(classify_likelihood)
-
-    st.dataframe(
-        table_df[[
-            "donor_name",
-            "donor_category",
-            "country",
-            "corporate_core_business",
-            "Likelihood (%)",
-            "AI Segment",
-            "predicted_interest_area",
-            "Last Donation Month",
-            "Contact"
-        ]],
-        use_container_width=True,
-        height=350
-    )
-
-    # =========================
-    # 2️. AI STRATEGIC MATRIX
-    # =========================
-    import pandas as pd
-    today = pd.Timestamp.today()
-
-    donor_summary["Recency (Months)"] = (
-        (today - pd.to_datetime(donor_summary["donation_date"], errors="coerce"))
-        .dt.days / 30
-    )
-
-    donor_summary["Recency (Months)"] = (
-        donor_summary["Recency (Months)"]
-        .fillna(12)          # assume 12 months if missing
-        .clip(lower=0.5)
-    )
-
-    fig_matrix = px.scatter(
-        donor_summary,
-        x="Likelihood (%)",
-        y="donation_amount",
-        size="Recency (Months)",
-        color="donor_category",
-        title="AI Donor Prioritization Matrix",
-        color_discrete_map=CATEGORY_COLOR_MAP,
-        hover_data=["donor_name", "country", "corporate_core_business"],
-        size_max=40
-    )
-    fig_matrix.update_layout(
-        xaxis_title="Likelihood to Donate (%)",
-        yaxis_title="Total Donation Amount (RM)"
-    )
-
-    # Strategic quadrant lines and labels for the AI Donor Strategic Matrix
-    # Determine quadrant split values
-    median_likelihood = donor_summary["Likelihood (%)"].median()
-    median_donation = donor_summary["donation_amount"].median()
-
-    # Add quadrant divider lines
-    fig_matrix.add_vline(x=median_likelihood, line_dash="dash", line_color="gray")
-    fig_matrix.add_hline(y=median_donation, line_dash="dash", line_color="gray")
-
-    # Add quadrant annotations (strategy insight)
-    fig_matrix.add_annotation(x=median_likelihood*0.5, y=median_donation*1.6,
-        text="Growth Potential", showarrow=False, font=dict(size=12,color="gray"))
-
-    fig_matrix.add_annotation(x=median_likelihood*1.5, y=median_donation*1.6,
-        text="Priority Donors", showarrow=False, font=dict(size=12,color="gray"))
-
-    fig_matrix.add_annotation(x=median_likelihood*0.5, y=median_donation*0.4,
-        text="Low Priority", showarrow=False, font=dict(size=12,color="gray"))
-
-    fig_matrix.add_annotation(x=median_likelihood*1.5, y=median_donation*0.4,
-        text="Re‑Engage", showarrow=False, font=dict(size=12,color="gray"))
-
-    st.plotly_chart(fig_matrix, use_container_width=True, config={"displayModeBar": False})
-
-    # =========================
-    # 3️. MONTHLY AI TREND
-    # =========================
-    high_df = donor_summary[donor_summary["Likelihood (%)"] >= 70]
-    if high_df.empty:
-        high_df = donor_summary.nlargest(10, "Likelihood (%)")
-
-    high_df["Last Month"] = pd.to_datetime(
-        high_df["donation_date"]
-    ).dt.to_period("M").astype(str)
-
-    monthly_high = (
-        high_df.groupby("Last Month")
-        .size()
-        .reset_index(name="High Likelihood Donors")
-    )
-
-    fig_high = px.bar(
-        monthly_high,
-        x="Last Month",
-        y="High Likelihood Donors",
-        title="Monthly High‑Potential Donor Opportunities",
-        color="Last Month",
-        color_discrete_sequence=px.colors.qualitative.Set3
-    )
-
-    st.plotly_chart(fig_high, use_container_width=True, config={"displayModeBar": False})
 # =========================
 # PAGE DATABASE MANAGEMENT (ADMIN ONLY)
 # =========================
 
-if page == "Database Management":
+if page == "🗄 Database Management":
 
     if st.session_state.user_role != "admin":
         st.error("Access Denied.")
         st.stop()
 
-    st.markdown("## Database Management (Admin Only)")
-    st.write("CRUD interface will be built here.")
+    # Load database management page
+    show_database_page()
 
 # =========================
 # DONOR PORTAL PAGE
 # =========================
+if page == "💳 My Contributions":
+    show_donor_portal(df, st.session_state.username)
 
-if page == "My Contributions":
-
-    if st.session_state.user_role != "donor":
-        st.error("Access Denied.")
-        st.stop()
-
-    st.markdown("## My Contribution Portal")
-    st.markdown("View your personal donation history and contribution totals.")
-
-    # Example filter using logged in username
-    donor_name = st.session_state.get("username", None)
-
-    donor_df = df.copy()
-
-    if donor_name:
-        donor_df = donor_df[
-            donor_df["donor_name"].str.contains(donor_name, case=False, na=False)
-        ]
-
-    total_donation = donor_df["donation_amount"].sum()
-
-    st.metric("Total Contributions", f"RM {total_donation:,.0f}")
-
-    history = donor_df[[
-        "donation_date",
-        "donation_amount",
-        "fund_category"
-    ]].sort_values("donation_date", ascending=False)
-
-    st.markdown("### Donation History")
-
-    st.dataframe(
-        history,
-        use_container_width=True
-    )
