@@ -1,0 +1,184 @@
+{
+  "trained_at": "2026-11-10 16:58",
+  "snapshot_date": "2026-10-31",
+  "prediction_window": "2026-11-01 to 2027-10-31",
+  "evaluation": {
+    "train_cutoff": "2024-10-31",
+    "test_cutoff": "2025-10-31",
+    "train_donors": 2680,
+    "test_donors": 2888,
+    "test_positive_rate": 0.495
+  },
+  "best_model": "Random Forest",
+  "likelihood_comparison": {
+    "Simple rule (gave in last 12 months)": {
+      "roc_auc": null,
+      "accuracy": 0.763,
+      "precision": 0.733,
+      "recall": 0.822,
+      "f1": 0.775
+    },
+    "Logistic Regression": {
+      "roc_auc": 0.845,
+      "accuracy": 0.78,
+      "precision": 0.768,
+      "recall": 0.797,
+      "f1": 0.782
+    },
+    "Random Forest": {
+      "roc_auc": 0.851,
+      "accuracy": 0.78,
+      "precision": 0.755,
+      "recall": 0.823,
+      "f1": 0.788
+    },
+    "Gradient Boosting": {
+      "roc_auc": 0.843,
+      "accuracy": 0.775,
+      "precision": 0.761,
+      "recall": 0.796,
+      "f1": 0.778
+    }
+  },
+  "value_model": {
+    "r2_log_amount_givers": 0.835,
+    "mae_rm_all_donors": 9686.0,
+    "baseline_mae_rm_last_12m": 11520.0,
+    "predicted_total_rm": 23029084.0,
+    "actual_total_rm": 31439269.0
+  },
+  "segments": {
+    "k": 4,
+    "silhouette_by_k": {
+      "3": 0.267,
+      "4": 0.258,
+      "5": 0.264,
+      "6": 0.25
+    },
+    "profile": [
+      {
+        "segment": "Lapsed",
+        "donors": 705,
+        "avg_recency_days": 1754.76,
+        "avg_gifts": 3.19,
+        "avg_events_12m": 0.35,
+        "avg_likelihood": 0.13,
+        "expected_rm_12m": 431367.76
+      },
+      {
+        "segment": "Loyal Champions",
+        "donors": 531,
+        "avg_recency_days": 197.49,
+        "avg_gifts": 12.66,
+        "avg_events_12m": 2.42,
+        "avg_likelihood": 0.76,
+        "expected_rm_12m": 10614269.64
+      },
+      {
+        "segment": "New & Growing",
+        "donors": 782,
+        "avg_recency_days": 394.34,
+        "avg_gifts": 3.84,
+        "avg_events_12m": 0.63,
+        "avg_likelihood": 0.47,
+        "expected_rm_12m": 2617423.46
+      },
+      {
+        "segment": "Regular Supporters",
+        "donors": 982,
+        "avg_recency_days": 341.16,
+        "avg_gifts": 15.03,
+        "avg_events_12m": 0.5,
+        "avg_likelihood": 0.58,
+        "expected_rm_12m": 13013391.35
+      }
+    ]
+  },
+  "global_feature_importance": [
+    {
+      "feature": "recency_days",
+      "label": "Days since last donation",
+      "mean_abs_shap": 0.1183
+    },
+    {
+      "feature": "amount_12m_log",
+      "label": "Amount donated in the last 12 months",
+      "mean_abs_shap": 0.0625
+    },
+    {
+      "feature": "gifts_12m",
+      "label": "Donations in the last 12 months",
+      "mean_abs_shap": 0.0621
+    },
+    {
+      "feature": "days_since_event",
+      "label": "Days since last event",
+      "mean_abs_shap": 0.0364
+    },
+    {
+      "feature": "frequency",
+      "label": "Total number of donations",
+      "mean_abs_shap": 0.0264
+    },
+    {
+      "feature": "events_12m",
+      "label": "Events attended (last 12 months)",
+      "mean_abs_shap": 0.0216
+    },
+    {
+      "feature": "tenure_days",
+      "label": "Years as a donor",
+      "mean_abs_shap": 0.0163
+    },
+    {
+      "feature": "monetary_log",
+      "label": "Total amount donated",
+      "mean_abs_shap": 0.0156
+    },
+    {
+      "feature": "cat_Staff",
+      "label": "Staff donor",
+      "mean_abs_shap": 0.0152
+    },
+    {
+      "feature": "events_total",
+      "label": "Events attended (all time)",
+      "mean_abs_shap": 0.0126
+    },
+    {
+      "feature": "avg_gift_log",
+      "label": "Average gift size",
+      "mean_abs_shap": 0.0094
+    },
+    {
+      "feature": "cat_Student",
+      "label": "Student donor",
+      "mean_abs_shap": 0.0063
+    },
+    {
+      "feature": "cat_Individual",
+      "label": "Individual donor",
+      "mean_abs_shap": 0.0063
+    },
+    {
+      "feature": "campaign_share",
+      "label": "Share of gifts made during campaigns",
+      "mean_abs_shap": 0.0054
+    },
+    {
+      "feature": "cat_Corporate",
+      "label": "Corporate donor",
+      "mean_abs_shap": 0.0029
+    },
+    {
+      "feature": "cat_Alumni",
+      "label": "Alumni donor",
+      "mean_abs_shap": 0.0012
+    },
+    {
+      "feature": "is_hnwi",
+      "label": "High-net-worth individual",
+      "mean_abs_shap": 0.0004
+    }
+  ]
+}
